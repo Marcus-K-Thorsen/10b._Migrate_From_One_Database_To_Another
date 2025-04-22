@@ -22,15 +22,15 @@ def upgrade() -> None:
     """Upgrade schema."""
     accounts_table = op.create_table(
         'accounts',
-        sa.Column('id', sa.Integer, primary_key=True),
+        sa.Column('id', sa.Integer, primary_key=True, autoincrement=True),
         sa.Column('name', sa.String(50), nullable=False),
         sa.Column('description', sa.Unicode(200)),
     )
     op.bulk_insert(accounts_table,
     [
-        {'name': 'John Smith', 'description': 'CEO'},
-        {'name': 'Ed Williams', 'description': 'CTO'},
-        {'name': 'Wendy Jones', 'description': 'CFO'},
+        {'id': 1, 'name': 'John Smith', 'description': 'CEO'},
+        {'id': 2, 'name': 'Ed Williams', 'description': 'CTO'},
+        {'id': 3, 'name': 'Wendy Jones', 'description': 'CFO'},
     ])
 
 

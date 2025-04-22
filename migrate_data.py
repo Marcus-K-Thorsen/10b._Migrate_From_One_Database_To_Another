@@ -1,68 +1,57 @@
 import os
-from sqlalchemy import create_engine, MetaData, Table, Column
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.schema import CreateTable
-from sqlalchemy.sql.sqltypes import NullType
 from dotenv import load_dotenv
+from migrate_data_functions import SQLDatabase, migrate_table
 
-# Load environment variables from .env file
-load_dotenv()
 
-# Load environment variables
-MYSQL_URL = os.getenv("MYSQL_URL")
-POSTGRES_URL = os.getenv("POSTGRES_URL")
+def run_migration(source_db_url: str, target_db_url: str) -> None:
+    """
+    Run the migration from source database to target database.
+    
+    Args:
+        source_db_url (str): The URL of the source database.
+        target_db_url (str): The URL of the target database.
+    """
+    try:
+        if not isinstance(source_db_url, str) or not isinstance(target_db_url, str):
+            raise ValueError("Database URLs must be strings.")
+        # Extract database types from the URLs
+        source_db_type = "MySQL" if "mysql" in MYSQL_URL else "Unknown"
+        target_db_type = "PostgreSQL" if "postgresql" in POSTGRES_URL else "Unknown"
 
-# Create engines and sessions
-source_engine = create_engine(MYSQL_URL)
-target_engine = create_engine(POSTGRES_URL)
-SourceSession = sessionmaker(bind=source_engine)
-TargetSession = sessionmaker(bind=target_engine)
-source_session = SourceSession()
-target_session = TargetSession()
+        print(f"Starting data migration from source database ({source_db_type}) to the target database ({target_db_type})...")
+        
+        source_db = SQLDatabase(source_db_url)
+        target_db = SQLDatabase(target_db_url)
+        
+        # Migrate tables in the correct order
+        table_order = ["alembic_version", "accounts", "transactions"]  # Ensure accounts is migrated before transactions
+        for table_name in table_order:
+            if table_name in source_db.metadata.tables:
+                migrate_table(table_name, source_db, target_db)
 
-# Reflect tables
-source_metadata = MetaData()
-source_metadata.reflect(bind=source_engine)
-target_metadata = MetaData()
-target_metadata.reflect(bind=target_engine)
+        print("Data migration completed successfully!")
 
-# Extract database types from the URLs
-source_db_type = "MySQL" if "mysql" in MYSQL_URL else "Unknown"
-target_db_type = "PostgreSQL" if "postgresql" in POSTGRES_URL else "Unknown"
+        # Close sessions
+        source_db.session.close()
+        target_db.session.close()
+    
+    except Exception as e:
+        print(f"Error during migration setup: {e}")
+        return
 
-# Updated print statement
-print(f"Starting data migration from source database ({source_db_type}) to the target database ({target_db_type})...")
 
-# Loop through all tables in the source database
-for table_name, source_table in source_metadata.tables.items():
-    # Skip if the table already exists in the target database
-    if table_name in target_metadata.tables:
-        print(f"Table {table_name} already exists in {target_db_type}. Skipping.")
-        continue
+if __name__ == "__main__":
+    # Load environment variables from .env file
+    load_dotenv()
 
-    print(f"Migrating table: {table_name}")
-
-    # Create the table in the target database
-    target_columns = [
-        Column(column.name, column.type if column.type is not None else NullType(), primary_key=column.primary_key)
-        for column in source_table.columns
-    ]
-    target_table = Table(table_name, target_metadata, *target_columns)
-    target_table.create(target_engine)
-
-    # Fetch data from the source table
-    rows = source_session.execute(source_table.select()).fetchall()
-
-    # Insert data into the target table
-    for row in rows:
-        insert_data = {column.name: row._mapping[column.name] for column in source_table.columns}
-        target_session.execute(target_table.insert().values(**insert_data))
-
-    # Commit the transaction
-    target_session.commit()
-
-print("Data migration completed successfully!")
-
-# Close sessions
-source_session.close()
-target_session.close()
+    # Get database URLs from environment variables
+    MYSQL_URL = os.getenv("MYSQL_URL")
+    POSTGRES_URL = os.getenv("POSTGRES_URL")
+    
+    source_db_url=MYSQL_URL
+    target_db_url=POSTGRES_URL
+    
+    run_migration(
+        source_db_url, 
+        target_db_url
+    )

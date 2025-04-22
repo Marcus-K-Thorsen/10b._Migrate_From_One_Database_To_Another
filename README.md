@@ -32,7 +32,7 @@ Or if you want to have Alembic interact with the Postgres Database:
 sqlalchemy.url = postgresql+psycopg2://root:rootpassword@127.0.0.1:5432/mydatabase
 ```
 
-## Creating a migration
+### Creating a migration
 
 ```bash
 $ alembic revision -m "suitable name for the migration"
@@ -40,7 +40,7 @@ $ alembic revision -m "suitable name for the migration"
 
 Update the file that was generated within the `alembic\versions` with the migration codeto set up and take down this migration:
 
-## Running the migration
+### Running the migration
 
 ```bash
 $ alembic upgrade head
@@ -52,102 +52,212 @@ Rollback the migration:
 $ alembic downgrade -1
 ```
 
+---
+
 ### **Docker and Docker-Compose Commands**
 
 - **Start the MySQL container in detached mode:**
-  ```bash
-  docker-compose up -d
-  ```
+```bash
+$ docker-compose up -d
+```
 
 - **Rebuild the containers after making changes to the `docker-compose.yaml` file:**
-  ```bash
-  docker-compose up -d --build
-  ```
+```bash
+$ docker-compose up -d --build
+```
 
 - **top the running containers:**
-  ```bash
-  docker-compose down
-  ```
+```bash
+$ docker-compose down
+```
 
 - **Stop the running containers and remove associated volumes:**
-  ```bash
-  docker-compose down -v
-  ```
+```bash
+$ docker-compose down -v
+```
 
 - **Connect to the MySQL database from within the container:**
-  ```bash
-  $ docker exec -it mysql_migration_from_database_container mysql -u root -prootpassword
-  ```
+```bash
+$ docker exec -it mysql_database mysql -u root -prootpassword -D mydatabase
+```
   - <details>
     <summary>Click to view MySQL CLI Commands</summary>
 
     1. **See All Databases**
-        ```mysql
-        SHOW DATABASES;
-        ```
+    ```mysql
+    SHOW DATABASES;
+    ```
   
     2. **Select a Specific Database**
-        ```mysql
-        USE mydatabase;
-        ```
+    ```mysql
+    USE mydatabase;
+    ```
   
     3. **See all Tables in the Selected Database**
-        ```mysql
-        SHOW TABLES;
-        ```
+    ```mysql
+    SHOW TABLES;
+    ```
   
     4. **Select All Rows from a Specifik Table**
-        ```mysql
-        SELECT * FROM table_name;
-        ```
+    ```mysql
+    SELECT * FROM table_name;
+    ```
   
     5. **Exit the MySQL CLI**
-        ```mysql
-        EXIT;
-        ```
+    ```mysql
+    EXIT;
+    ```
   </details>
 
 - **Connect to the Postgres database from within the container:**
-  ```bash
-  $ docker exec -it postgresql_migration_to_database_container psql -U root -d mydatabase
-  ```
+```bash
+$ docker exec -it postgresql_database psql -U root -d mydatabase
+```
   - <details>
     <summary>Click to view Postgres CLI Commands</summary>
 
     1. **See All Databases**
-        ```sql
-        \l
-        ```
+    ```sql
+    \l
+    ```
 
     2. **Select a Specific Database**
-        ```sql
-        \c mydatabase
-        ```
+    ```sql
+    \c mydatabase
+    ```
 
     3. **See All Tables in the Selected Database**
-        ```sql
-        \dt
-        ```
+    ```sql
+    \dt
+    ```
 
     4. **Select All Rows from a Specific Table**
-        ```sql
-        SELECT * FROM table_name;
-        ```
+    ```sql
+    SELECT * FROM table_name;
+    ```
 
     5. **Exit the PostgreSQL CLI**
-        ```sql
-        \q
-        ```
+    ```sql
+    \q
+    ```
   </details>
 
 
 ## How to migrate data from one database to another
 
-To migrate data from the MySQL database to the PostgreSQL database, follow these steps:
+To migrate data from one database to another, follow one of these two guides.
 
-1. **Start the Docker Containers**  
-   Ensure the databases are running by starting the Docker containers:
-   ```bash
-   docker-compose up -d
-   ```
+### Migrate MySQL Database to the Postgres Database
+
+<details>
+  <summary>Migrate MySQL to Postgres</summary>
+
+  <br>
   
+  **1. Start the Docker Containers**
+      
+  Ensure the databases are running by starting the Docker containers:
+  ```bash
+  $ docker-compose up -d
+  ```
+    
+  If the Docker containers are already running, reset the databases:
+  ```bash
+  $ docker-compose down -v
+  ```
+  
+  **2. Set the MySQL Database up using Alembic**
+    
+  Make certain that the [`alembic.ini`](alembic.ini#L66) has the `sqlalchemy.url` set to be equal to the MySQL Connection URL:
+  ```ini
+  sqlalchemy.url = mysql+mysqldb://root:rootpassword@127.0.0.1:3305/mydatabase
+  ```
+    
+  Run the Alembic upgrade command to set the MySQL database up, make certain that the MySQL Database container is ready to connect:
+  ```bash
+  $ poetry run alembic upgrade head
+  ```
+
+  Optional, check the MySQL database container has tables with data:
+  ```bash
+  $ docker exec -it mysql_database mysql -u root -prootpassword -D mydatabase
+  ```
+
+  **3. Migrate the data using the migrate_data.py script**
+
+  Set up the [`migrate_data.py`](migrate_data.py#L51-52) script to have the MySQL URL set as the Source Database URL and the Postgres URL set as the Target Database URL:
+  ```python
+  source_db_url = MYSQL_URL
+  target_db_url = POSTGRES_URL
+  ```
+
+  Run the [`migrate_data.py`](migrate_data.py) script:
+  ```bash
+  $ poetry run python migrate_data.py
+  ```
+
+  Optional, enter the postgresql_database container and see that the same data is within the Postgres Database as there is within the MySQL Database:
+  ```bash
+  $ docker exec -it postgresql_database psql -U root -d mydatabase
+  ```
+
+</details>
+
+
+
+### Migrate Postgres Database to the MySQL Database
+
+<details>
+  <summary>Migrate Postgres to MySQL</summary>
+
+  <br>
+  
+  **1. Start the Docker Containers**
+      
+  Ensure the databases are running by starting the Docker containers:
+  ```bash
+  $ docker-compose up -d
+  ```
+    
+  If the Docker containers are already running, reset the databases:
+  ```bash
+  $ docker-compose down -v
+  ```
+  
+  **2. Set the Postgres Database up using Alembic**
+    
+  Make certain that the [`alembic.ini`](alembic.ini#L66) has the `sqlalchemy.url` set to be equal to the Postgres Connection URL:
+  ```ini
+  sqlalchemy.url = postgresql+psycopg2://root:rootpassword@127.0.0.1:5432/mydatabase
+  ```
+    
+  Run the Alembic upgrade command to set the Postgres database up, make certain that the Postgres Database container is ready to connect:
+  ```bash
+  $ poetry run alembic upgrade head
+  ```
+
+  Optional, check the Postgres database container has tables with data:
+  ```bash
+  $ docker exec -it postgresql_database psql -U root -d mydatabase
+  ```
+
+  **3. Migrate the data using the migrate_data.py script**
+
+  Set up the [`migrate_data.py`](migrate_data.py#L51-52) script to have the Postgres URL set as the Source Database URL and the MySQL URL set as the Target Database URL:
+  ```python
+  source_db_url = POSTGRES_URL
+  target_db_url = MYSQL_URL
+  ```
+
+  Run the [`migrate_data.py`](migrate_data.py) script:
+  ```bash
+  $ poetry run python migrate_data.py
+  ```
+
+  Optional, enter the mysql_database container and see that the same data is within the MySQL Database as there is within the Postgres Database:
+  ```bash
+  $ docker exec -it mysql_database mysql -u root -prootpassword -D mydatabase
+  ```
+
+</details>
+
